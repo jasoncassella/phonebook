@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Filter from './Filter';
 import Form from './Form';
 import People from './People';
-import axios from 'axios';
+import phonebookService from './services/phonebook';
 
 const App = () => {
 	const [persons, setPersons] = useState([]);
@@ -11,8 +11,8 @@ const App = () => {
 	const [filter, setFilter] = useState('');
 
 	useEffect(() => {
-		axios.get('http://localhost:3000/persons').then(response => {
-			setPersons(response.data);
+		phonebookService.getAll().then(initialPersons => {
+			setPersons(initialPersons);
 		});
 	}, []);
 
@@ -24,10 +24,45 @@ const App = () => {
 			id: persons.length + 1,
 		};
 		if (persons.some(person => person.name === newPersonObject.name)) {
-			alert(`${newName} is already in the phonebook`);
-			return;
+			if (
+				confirm(
+					`${newName} is already in the phonebook, replace the old number with a new one?`
+				)
+			) {
+				updateNumber(newName);
+				return;
+			} else {
+				return;
+			}
 		}
-		setPersons(persons.concat(newPersonObject));
+		phonebookService.create(newPersonObject).then(returnedPerson => {
+			setPersons(persons.concat(returnedPerson));
+			setNewName('');
+			setNewNumber('');
+		});
+	};
+
+	const deletePerson = id => {
+		phonebookService.deletePerson(id).then(person => {
+			setPersons(persons.filter(p => p.id !== id));
+		});
+	};
+
+	const updateNumber = name => {
+		const person = persons.find(p => p.name === name);
+		console.log(person);
+		const changedPerson = { ...person, number: newNumber };
+		phonebookService
+			.update(person.id, changedPerson)
+			.then(returnedPerson => {
+				console.log(returnedPerson);
+				setPersons(
+					persons.map(person => (person.name !== name ? person : returnedPerson))
+				);
+			})
+			.catch(error => {
+				setPersons(persons.filter(p => p.name !== name));
+			});
 	};
 
 	const handleNameInput = e => setNewName(e.target.value);
@@ -51,7 +86,7 @@ const App = () => {
 				addPerson={addPerson}
 			/>
 			<h3>Numbers</h3>
-			<People personsToDisplay={personsToDisplay} />
+			<People personsToDisplay={personsToDisplay} deletePerson={deletePerson} />
 		</div>
 	);
 };
