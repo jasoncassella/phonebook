@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Filter from './Filter';
 import Form from './Form';
+import Notification from './Notification';
 import People from './People';
 import phonebookService from './services/phonebook';
 
@@ -9,6 +10,7 @@ const App = () => {
 	const [newName, setNewName] = useState('');
 	const [newNumber, setNewNumber] = useState('');
 	const [filter, setFilter] = useState('');
+	const [notification, setNotification] = useState();
 
 	useEffect(() => {
 		phonebookService.getAll().then(initialPersons => {
@@ -40,29 +42,46 @@ const App = () => {
 			setNewName('');
 			setNewNumber('');
 		});
+
+		setNotification(`Added ${newPersonObject.name}`);
+		removeNotification();
 	};
 
 	const deletePerson = id => {
-		phonebookService.deletePerson(id).then(person => {
-			setPersons(persons.filter(p => p.id !== id));
-		});
+		const personToDelete = persons.find(p => p.id === id);
+		phonebookService
+			.deletePerson(id)
+			.then(person => {
+				setPersons(persons.filter(p => p.id !== id));
+				setNotification(`Deleted ${personToDelete.name}`);
+				removeNotification();
+			})
+			.catch(error => {
+				setNotification(
+					`Information of ${personToDelete.name} has already been removed from the server`
+				);
+				removeNotification();
+				setPersons(persons.filter(p => p.id !== id));
+			});
 	};
 
 	const updateNumber = name => {
 		const person = persons.find(p => p.name === name);
-		console.log(person);
 		const changedPerson = { ...person, number: newNumber };
-		phonebookService
-			.update(person.id, changedPerson)
-			.then(returnedPerson => {
-				console.log(returnedPerson);
-				setPersons(
-					persons.map(person => (person.name !== name ? person : returnedPerson))
-				);
-			})
-			.catch(error => {
-				setPersons(persons.filter(p => p.name !== name));
-			});
+		phonebookService.update(person.id, changedPerson).then(returnedPerson => {
+			setPersons(
+				persons.map(person => (person.name !== name ? person : returnedPerson))
+			);
+		});
+
+		setNotification(`Updated ${person.name}`);
+		removeNotification();
+	};
+
+	const removeNotification = () => {
+		setTimeout(() => {
+			setNotification(null);
+		}, 5000);
 	};
 
 	const handleNameInput = e => setNewName(e.target.value);
@@ -76,6 +95,7 @@ const App = () => {
 	return (
 		<div>
 			<h2>Phonebook</h2>
+			{notification && <Notification notification={notification} />}
 			<Filter filter={filter} handleFilterInput={handleFilterInput} />
 			<h3>add new</h3>
 			<Form
